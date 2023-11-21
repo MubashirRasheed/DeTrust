@@ -61,7 +61,7 @@ function NavBar() {
               
             ) : (
               <NavigationMenuItem>
-                   <NavigationMenuLink href="/register" className="text-white">
+                   <NavigationMenuLink href="/Register" className="text-white">
                 Register
               </NavigationMenuLink>
                 <NavigationMenuTrigger>
