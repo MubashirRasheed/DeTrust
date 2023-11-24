@@ -1,5 +1,5 @@
 "use client"
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   NavigationMenu,
   NavigationMenuItem,
@@ -8,23 +8,34 @@ import {
   NavigationMenuTrigger,
 } from '@/components/ui/navigation-menu';
 import { Button } from '@/components/ui/button';
+import { useWallet } from '@/contextProvider/walletContext';
 
 function NavBar() {
   const [walletConnected, setWalletConnected] = useState(false);
+  const { account, checkIfWalletIsConnected } = useWallet();
 
   const connectWallet = () => {
     // Code to connect the wallet goes here
     // For example: Your wallet connection logic
     // Once connected, set walletConnected to true
-    if(window.ethereum){
-      window.ethereum.request({ method: 'eth_requestAccounts' })
-      .then((accounts: any) => {
-        console.log(accounts)
-        setWalletConnected(true)
-      })
-      .catch((err: any) => console.log(err))
+    if (account) {
+      setWalletConnected(true);
     }
+    else {
+      checkIfWalletIsConnected();
+    }
+
   };
+
+  useEffect(() => {
+    if (account) {
+      setWalletConnected(true);
+    }
+    else {
+      setWalletConnected(false);
+    }
+  }
+    , [account]);
 
   return (
     <nav className="bg-black text-white py-4">
@@ -53,29 +64,28 @@ function NavBar() {
 
             {walletConnected ? (
               <NavigationMenuItem>
-              <NavigationMenuLink href="/review" className="px-4 py-2 bg-gradient-to-r from-pink-500 to-pink-700 text-white rounded-full">
-                Review
-              </NavigationMenuLink>
-            </NavigationMenuItem>
-
-              
+                <NavigationMenuLink
+                  href="/review"
+                  className="px-4 py-2 bg-gradient-to-r from-pink-500 to-pink-700 text-white rounded-full"
+                >
+                  Review {account.slice(0, 6)}...{account.slice(-4)}
+                </NavigationMenuLink>
+              </NavigationMenuItem>
             ) : (
               <NavigationMenuItem>
-                   <NavigationMenuLink href="/Register" className="text-white">
-                Register
-              </NavigationMenuLink>
+                <NavigationMenuLink href="/Register" className="text-white">
+                  Register
+                </NavigationMenuLink>
                 <NavigationMenuTrigger>
                   <Button
                     className="px-4 py-2 rounded-full bg-gradient-to-r from-pink-500 to-pink-700 text-white"
-                    onClick={connectWallet}
+                   
                   >
                     Connect Wallet
                   </Button>
                 </NavigationMenuTrigger>
-             
               </NavigationMenuItem>
             )}
-
           </NavigationMenuList>
         </NavigationMenu>
       </div>

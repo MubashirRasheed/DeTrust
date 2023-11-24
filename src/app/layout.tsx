@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import NavBar from './components2/Navbar'
+import { EthereumProvider } from '@/contextProvider/smartcontractContext'
+import { WalletConnection } from '@/contextProvider/walletContext'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -19,10 +21,14 @@ export default function RootLayout({
     <html lang="en">
    
       <body className={inter.className}>
+        <WalletConnection>
+        <EthereumProvider>
       <NavBar />
         <main className="flex-1">
           {children}
       </main>
+      </EthereumProvider>
+      </WalletConnection>
         </body>
     </html>
   )
