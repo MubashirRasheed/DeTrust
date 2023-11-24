@@ -26,6 +26,7 @@ contract ReviewNFTContract is ERC721URIStorage {
 
     struct MarketItem {
         uint256 tokenId;
+        string tokenURI;
         address payable seller;
         address payable owner;
         uint256 price;
@@ -47,6 +48,8 @@ contract ReviewNFTContract is ERC721URIStorage {
         string businessDescription;
         string businessCategory;
         uint256 reputation;
+        string businessLogoUrl;
+        
         // Add other user details as needed
     }
 
@@ -54,6 +57,15 @@ contract ReviewNFTContract is ERC721URIStorage {
         string username;
         string category;
         string description;
+        string businessLogoUrl;
+    }
+
+    struct DomainData {
+        string domain;
+        string username;
+        string category;
+        string description;
+        string businessLogoUrl;
     }
 
     event MarketItemCreated(
@@ -71,11 +83,12 @@ contract ReviewNFTContract is ERC721URIStorage {
         bool isBusiness,
         string businessDomain,
         string businessDescription,
-        string businessCategory
+        string businessCategory,
+        string businessLogoUrl
     );
 
     event ReviewVoted(uint256 indexed tokenId, address voter, bool isUpvote);
-    event DomainRegistered(string domain);
+    event DomainRegistered(string businessDomain, string username, string category, string description, string businessLogoUrl);
 
     constructor() ERC721("Artbyte", "ART") {
         owner = payable(msg.sender);
@@ -94,7 +107,8 @@ contract ReviewNFTContract is ERC721URIStorage {
         bool _isBusiness,
         string memory _businessDomain,
         string memory _businessDescription,
-        string memory _businessCategory
+        string memory _businessCategory,
+        string memory _businessLogoUrl
     ) public {
         require(bytes(users[msg.sender].username).length == 0, "User already registered");
 
@@ -104,6 +118,7 @@ contract ReviewNFTContract is ERC721URIStorage {
             businessDomain: _isBusiness ? _businessDomain : "",
             businessDescription: _isBusiness ? _businessDescription : "",
             businessCategory: _isBusiness ? _businessCategory : "",
+            businessLogoUrl: _isBusiness ? _businessLogoUrl : "",
             reputation: 0
         });
 
@@ -115,39 +130,66 @@ contract ReviewNFTContract is ERC721URIStorage {
             registeredDomainsInfo[_businessDomain] = DomainInfo({
                 username: _username,
                 category: _businessCategory,
-                description: _businessDescription
+                description: _businessDescription,
+                businessLogoUrl: _businessLogoUrl
             });
 
-            emit DomainRegistered(_businessDomain);
+            emit DomainRegistered(_businessDomain, _username, _businessCategory, _businessDescription, _businessLogoUrl);
         }
 
-        emit UserRegistered(_username, msg.sender, _isBusiness, _businessDomain, _businessDescription, _businessCategory);
+        emit UserRegistered(_username, msg.sender, _isBusiness, _businessDomain, _businessDescription, _businessCategory, _businessLogoUrl);
     }
 
     function getRegisteredDomainsarray() public view returns (string[] memory) {
         return registeredDomainsArray;
     }
 
-    function getRegisteredDomains() public view returns (string[] memory, string[] memory, string[] memory) {
-        uint256 length = registeredDomainsArray.length;
-        string[] memory domains = new string[](length);
-        string[] memory usernames = new string[](length);
-        string[] memory descriptions = new string[](length);
+    // function getRegisteredDomains() public view returns (string[] memory, string[] memory, string[] memory, string[] memory) {
+    //     uint256 length = registeredDomainsArray.length;
+    //     string[] memory domains = new string[](length);
+    //     string[] memory usernames = new string[](length);
+    //     string[] memory descriptions = new string[](length);
+    //     string[] memory logos = new string[](length);
+        
 
-        for (uint256 i = 0; i < length; i++) {
-            string memory domain = registeredDomainsArray[i];
-            string memory username = registeredDomainsInfo[domain].username;
-            string memory category = registeredDomainsInfo[domain].category;
-            string memory description = registeredDomainsInfo[domain].description;
+    //     for (uint256 i = 0; i < length; i++) {
+    //         string memory domain = registeredDomainsArray[i];
+    //         string memory username = registeredDomainsInfo[domain].username;
+    //         string memory category = registeredDomainsInfo[domain].category;
+    //         string memory description = registeredDomainsInfo[domain].description;
+    //         string memory logo = registeredDomainsInfo[domain].businessLogoUrl;
 
-            domains[i] = domain;
-            usernames[i] = username;
-            descriptions[i] = string(abi.encodePacked(category, " ", description));
+    //         domains[i] = domain;
+    //         usernames[i] = username;
+    //         descriptions[i] = string(abi.encodePacked(category, " ", description));
+    //         logos[i] = logo;
+    //     }
+
+    //     return (domains, usernames, descriptions, logos);
+    // }
+
+    function getRegisteredDomainsData() public view returns (DomainData[] memory) {
+    uint256 length = registeredDomainsArray.length;
+    DomainData[] memory domainDataArray = new DomainData[](length);
+
+    for (uint256 i = 0; i < length; i++) {
+        string memory domain = registeredDomainsArray[i];
+        DomainInfo memory domainInfo = registeredDomainsInfo[domain];
+
+        // Check if the domain is not empty and has data
+        if (bytes(domain).length > 0) {
+            domainDataArray[i] = DomainData({
+                domain: domain,
+                username: domainInfo.username,
+                category: domainInfo.category,
+                description: domainInfo.description,
+                businessLogoUrl: domainInfo.businessLogoUrl
+            });
         }
-
-        return (domains, usernames, descriptions);
     }
 
+    return domainDataArray;
+}
 
     function createReviewNFT(string memory tokenURI, uint256 price, string memory businessDomain) public payable returns (uint) {
         require(bytes(businessDomain).length > 0, "Business domain is required");
@@ -168,7 +210,7 @@ contract ReviewNFTContract is ERC721URIStorage {
         // Check if the NFT is not already associated with this domain
         require(!isNFTAssociatedWithDomain(newTokenId, businessDomain), "NFT is already associated with this domain");
 
-        createMarketItem(newTokenId, price, businessDomain);
+        createMarketItem(newTokenId, price, businessDomain, tokenURI);
 
         return newTokenId;
     }
@@ -178,9 +220,10 @@ contract ReviewNFTContract is ERC721URIStorage {
                keccak256(abi.encodePacked(idToMarketItem[tokenId].businessDomain)) == keccak256(abi.encodePacked(businessDomain));
     }
 
-    function createMarketItem(uint256 tokenId, uint256 price, string memory businessDomain) private {
+    function createMarketItem(uint256 tokenId, uint256 price, string memory businessDomain , string memory tokenURI) private {
         idToMarketItem[tokenId] = MarketItem({
             tokenId: tokenId,
+            tokenURI: tokenURI,
             seller: payable(msg.sender),
             owner: payable(address(this)),
             price: price,

@@ -1,87 +1,124 @@
 "use client"
+import { ethers } from 'ethers';
 import Image from 'next/image';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useEthereum } from '@/contextProvider/smartcontractContext';
 
-type ImageCard = {
-  imageUrl: string;
-  category: string;
-  description: string;
-};
+
 
 const IndexPage = () => {
-  const [imageCards, setImageCards] = useState<ImageCard[]>([
-    {
-      imageUrl: 'https://i.imgur.com/HXvgmAe.png',
-      category: 'Category 1',
-      description: 'Description 1',
-    },
-    {
-      imageUrl: 'https://i.imgur.com/HXvgmAe.png',
-      category: 'Category 2',
-      description: 'Description 2',
-    },
-    {
-        imageUrl: 'https://i.imgur.com/HXvgmAe.png',
-        category: 'Category 2',
-        description: 'Description 2',
-      },
-      
-    // Add more image cards as needed
-  ]);
+  const [imageCards, setImageCards] = useState<DomainData[]>([])
 
   const [loading, setLoading] = useState(true);
+  const { contract, provider, signer } = useEthereum();
+  const [rawData, setRawData] = useState<any>(null);
 
-  useEffect(() => {
-    // Simulate content loading delay
-    const timer = setTimeout(() => {
-      setLoading(false); // Set loading to false after the delay
-    }, 2000); // Simulated delay of 2 seconds, adjust as needed
+ 
+  interface DomainData {
+    domain: string;
+    username: string;
+    category: string;
+    description: string;
+    businessLogoUrl: string;
+  }
 
-    return () => clearTimeout(timer); // Clean up timer on component unmount
-  }, []);
+  const extractDomainDetails = (result: any) => {
+    const domains: DomainData[] = [];
+  
+    for (let i = 0; i < result.length; i++) {
+      const domain = result[i][0]; // Extracting the domain name
+      if (domain !== '') {
+        const domainData: DomainData = {
+          domain: domain,
+          username: result[i][1], // Extracting other details like username, category, etc.
+          category: result[i][2],
+          description: result[i][3],
+          businessLogoUrl: result[i][4]
+        };
+        domains.push(domainData);
+      }
+    }
+  
+    return domains;
+  };
+  
 
-  return (
-    <div className="flex flex-wrap justify-center">
-      {imageCards.map((card, index) => (
+
+const fetchData = useCallback(async () => {
+  if (signer && contract) {
+    try {
+      const data = await contract.getRegisteredDomainsData();
+      const transformedData = extractDomainDetails(data);
+      setImageCards(transformedData);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      setLoading(false);
+    }
+  }
+}, [signer, contract]);
+
+useEffect(() => {
+  // const fetchData = async () => {
+  //   if (signer && contract) {
+  //     const data = await contract.getRegisteredDomainsData();
+  //     setLoading(false);
+  //     setRawData(data); // Set the raw data received from the contract
+  //     console.log("data", data)
+  //   }
+  // };
+
+  fetchData();
+}, [fetchData]);
+
+useEffect(() => {
+  if (rawData) {
+    // Process the raw data to create domain cards and set imageCards
+    const transformedData = extractDomainDetails(rawData);
+    setImageCards(transformedData);
+    console.log("transformedData", transformedData)
+  }
+}, [rawData]);
+
+return (
+  <div className="flex flex-wrap justify-center">
+      {imageCards.map((imageCards, index) => (
         <div key={index} className="max-w-md mx-auto bg-gray-900 shadow-md rounded-xl overflow-hidden m-4 relative">
           {/* Image */}
-          {!loading ? (
-            <Image
-              src={card.imageUrl}
-              alt={`Card Image ${index + 1}`}
-              className="w-full h-64 object-cover object-center rounded-xl"
-                width={100}
-                height={100}
-            />
-          ) : (
-            <div className="w-full h-64 bg-gray-800"></div> // Skeleton Loading for Image
-          )}
+          <Image
+            src={imageCards.businessLogoUrl}
+            alt={`Image ${index + 1}`}
+            className="w-full h-64 object-cover object-center rounded-t-xl"
+            width={500}
+            height={300}
+          />
 
           {/* Content */}
           <div className="p-4">
-            {!loading ? (
-              <>
-                {/* Actual content */}
-                <span className="inline-block bg-gray-800 rounded-full px-3 py-1 text-sm font-semibold text-gray-200">{card.category}</span>
-                <p className="text-gray-300 mt-2">{card.description}</p>
-              </>
-            ) : (
-              <>
-                {/* Skeleton Loading for Category Badge & Description */}
-                <div className="w-24 h-6 mb-2 bg-gray-700 animate-pulse"></div>
-                <div className="h-4 bg-gray-700 animate-pulse"></div>
-                <div className="h-4 my-2 bg-gray-700 animate-pulse"></div>
-                <div className="h-4 w-3/4 bg-gray-700 animate-pulse"></div>
-              </>
-            )}
+            {/* Domain username */}
+            <h2 className="text-xl font-bold mb-2">{imageCards.username}</h2>
+            
+            {/* Category badge */}
+            <span className="inline-block bg-gray-800 rounded-full px-3 py-1 text-sm font-semibold text-gray-200">
+              {imageCards.category}
+            </span>
+            
+            {/* Description */}
+            <p className="text-gray-300 mt-2">{imageCards.description}</p>
+            
+            {/* Button for details */}
+            <button className="mt-4 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+              Details
+            </button>
           </div>
-
+          
           {/* Clickable overlay for the entire card */}
-          <a href="YOUR_LINK_URL" className="absolute inset-0"></a>
+          <a href={`nfts/${encodeURI(imageCards.domain)}`} className="absolute inset-0"></a>
         </div>
       ))}
     </div>
-  );
+);
+
 };
 
 export default IndexPage;
