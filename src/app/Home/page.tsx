@@ -1,8 +1,10 @@
 "use client"
 import { ethers } from 'ethers';
 import Image from 'next/image';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, use } from 'react';
 import { useEthereum } from '@/contextProvider/smartcontractContext';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 
 
@@ -12,6 +14,7 @@ const IndexPage = () => {
   const [loading, setLoading] = useState(true);
   const { contract, provider, signer } = useEthereum();
   const [rawData, setRawData] = useState<any>(null);
+  const router = useRouter();
 
  
   interface DomainData {
@@ -79,6 +82,10 @@ useEffect(() => {
     console.log("transformedData", transformedData)
   }
 }, [rawData]);
+const handleDetail = useCallback((domain: string) => () => {
+  router.push(`/Nfts/${domain}`);
+}, [router]);
+
 
 return (
   <div className="flex flex-wrap justify-center">
@@ -107,13 +114,16 @@ return (
             <p className="text-gray-300 mt-2">{imageCards.description}</p>
             
             {/* Button for details */}
-            <button className="mt-4 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-              Details
+            <button onClick={handleDetail(imageCards.domain)}  className="mt-4 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+            Details
             </button>
           </div>
           
           {/* Clickable overlay for the entire card */}
-          <a href={`nfts/${encodeURI(imageCards.domain)}`} className="absolute inset-0"></a>
+          {/* <a href={`nfts/${encodeURI(imageCards.domain)}`} className="absolute inset-0"></a> */}
+
+
+          
         </div>
       ))}
     </div>

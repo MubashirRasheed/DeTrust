@@ -190,6 +190,9 @@ contract ReviewNFTContract is ERC721URIStorage {
 
     return domainDataArray;
 }
+function getNFTSDetails(uint256 tokenId) public view returns (MarketItem memory) {
+    return idToMarketItem[tokenId];
+}
 
     function createReviewNFT(string memory tokenURI, uint256 price, string memory businessDomain) public payable returns (uint) {
         require(bytes(businessDomain).length > 0, "Business domain is required");
