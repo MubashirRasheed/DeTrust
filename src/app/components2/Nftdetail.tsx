@@ -1,330 +1,218 @@
 "use client"
-import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs"
-import { useCallback, useRef, useState } from "react"
+import React, { useState, useContext, useEffect } from 'react';
+import Image from 'next/image';
+import { useRouter } from 'next/router';
 
-import { toPng, toBlob,toCanvas,toJpeg,toSvg } from "html-to-image"
+import { useEthereum } from '@/contextProvider/smartcontractContext';
+import { useWallet } from '@/contextProvider/walletContext';
+// import { NFTContext } from '../context/NFTContext';
+import Loader from './Loader';
+import Button from './Button';
+import Modal from './Modal';
 
-import {create as abcd} from 'kubo-rpc-client'
-import Image from "next/image"
-import { useEthereum } from "@/contextProvider/smartcontractContext"
-import { usePathname } from "next/navigation"
-import { ethers } from "ethers"
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form"
-import { useForm } from "react-hook-form"
+// import images from '../assets';
 
-// const Client = ipfsHttpClient({
-//   host: 'ipfs.infura.io',
-//   port: 5001,
-//   protocol: 'https',
-//   headers: {
-//     authorization: auth,
-//   },
-// });
-const NFTDeatilTabs = () => {
- 
 
-    const [activeTab, setActiveTab] = useState(0);
-    // const canvasRef = useRef(null);
-    const reviewRef = useRef(null);
-    const [reviewText, setReviewText] = useState('');
-    const [reviewImage, setReviewImage] = useState('')
-    const [nftPrice, setNftPrice] = useState(0);
-    const [ipfsUrl, setIpfsUrl] = useState('')
-    const { signer, contract } = useEthereum();
+const shortenAddress = (address) => `${address.slice(0, 6)}...${address.slice(-4)}`;
 
-    console.log('nft price:', nftPrice);
+const PaymentBodyCmp = ({ nft, nftCurrency }) => (
+  <div className="flex flex-col">
+    <div className="flexBetween">
+      <p className="font-poppins text-whitefont-semibold text-base minlg:text-xl">Item</p>
+      <p className="font-poppins text-white font-semibold text-base minlg:text-xl">Subtotal</p>
+    </div>
+    <div className="flexBetweenStart my-5">
+      <div className="flex-1 flexStartCenter">
+        <div className="relative w-28 h-28">
+          <Image
+            src={nft.image}
+            layout="fill"
+            objectFit="cover"
+          />
+        </div>
+        <div className="flex justify-center items-start flex-col ml-5">
+          <p className="font-poppins text-white font-semibold text-sm minlg:text-xl">{shortenAddress(nft.seller)}</p>
+          <p className="font-poppins text-white font-semibold text-sm minlg:text-xl">{nft.name}</p>
 
-    const pathname = usePathname();
-    const projectId = process.env.NEXT_PUBLIC_NFT_IPFS_PROJECT_ID;
-    const projectSecret = process.env.NEXT_PUBLIC_NFT_IPFS_API_KEY_SECRET;
-    const auth = `Basic ${Buffer.from(`${projectId}:${projectSecret}`).toString('base64')}`;
+        </div>
+      </div>
+      <div>
+        <p className="font-poppins text-white font-normal text-sm minlg:text-xl">{nft.price} <span className="font-semibold">{nftCurrency}</span></p>
+      </div>
+
+    </div>
+    <div className="flexBetween mt-10">
+
+      <p className="font-poppins text-white font-normal text-base minlg:text-xl">Total</p>
+      <p className="font-poppins text-white font-normal text-sm minlg:text-xl">{nft.price} <span className="font-semibold">{nftCurrency}</span></p>
+    </div>
+  </div>
+);
+
+const NFTDetails = () => {
+//   const { currentAccount, nftCurrency, buyNFT , isLoadingNFT } = useContext(NFTContext);
+  const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
+  const [nft, setNft] = useState({ image: '', tokenId: '', name: '', owner: '', price: '', seller: '' });
+
+  const [paymentModal, setPaymentModal] = useState(false);
+  const [successModal, setSuccessModal] = useState(false);
+const pathname = usePathname();
+const tokenIDquery = pathname.split('/')[2];
+const { signer, contract} = useEthereum();
+const {account } = useWallet();
+console.log("tokenIDquery:", tokenIDquery, account);
+
+
+  useEffect(() => {
+    if (!router.isReady) return;
+
+    const fetchData = async () => {
+      const nft = await contract.getNFTSDetails(tokenIDquery)
+      console.log("nft:", nft);
+      setNft(nft);
+      setIsLoading(false);
+    };
     
-  
-   
-    
-    const conf = abcd({
-      host: 'ipfs.infura.io',
-      port: 5001,
-      protocol: 'https',
-      headers: {
-        authorization: auth,
-      },
-    });
-    console.log("conf:", conf);
-    const uploadToIPFS2 = async (fileUri) => {
-      const subdomain = 'https://cryptosea-nft-marketplace.infura-ipfs.io';
-    
-      try {
-        const fetchforpng = await fetch(fileUri);
-        const data = await fetchforpng.blob();
- 
-            console.log("fileContent:", data);
-      
-      
-         
-          const added = await conf.add({ content: data });
-          console.log("added:", added);
-      
-            const url = `${subdomain}/ipfs/${added.path}`;
-            console.log("url:", url);
-            await setIpfsUrl(url);
-            await  createReviewNFT(url);
+    fetchData();
+  }, [fetchData]);
 
-      }
-      catch (error) {
-        console.error('Error uploading to IPFS:', error);
-        return null;
-      }
-    }
+  const checkout = async () => {
+    await buyNFT(nft);
 
-    
-
-
-   
-    
-
-const handleSubmitReview = useCallback( () => {
-    if (reviewRef.current === null) {
-      return
-    }
-    // reviewRef.current.style.display = 'block'
-    console.log("reviewRef:", reviewRef.current);
-    // changing display to block to make sure the div is visible
-    const loadingOverlay = document.createElement('div');
-    loadingOverlay.className = 'fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50 text-white';
-    // loadingOverlay.textContent = 'Loading...'; // You can display loading text or an icon here
-    loadingOverlay.innerHTML=`<div role="status">
-    <svg aria-hidden="true" class="inline w-10 h-10text-gray-200 animate-spin dark:text-gray-600 fill-blue-600" viewBox="0 0 100 101" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z" fill="currentColor"/>
-        <path d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z" fill="currentFill"/>
-    </svg>
-    <span class="sr-only">Loading...</span>
-</div>`
-    document.body.appendChild(loadingOverlay);
-    const elementRef = reviewRef.current;
-    const originalStyles = elementRef.style.cssText;
-    console.log("originalStyles:", originalStyles);
-    // reviewRef.current.style.display = 'block'
-    elementRef.style.cssText += '; display: block; position: static; left: 0; top: 0;';
-    // reviewRef.current.style.cssText += '; visibility: hidden; position: static; left: 0; top: 0;';
-    // reviewRef.current.style.cssText += '; position: absolute; transform: translate(-9999px, -9999px);';
-
-    toPng(elementRef, { cacheBust: true, })
-      .then(async (dataUrl) => {
-        elementRef.style.cssText = originalStyles;
-        // console.log("dataUrl:", dataUrl);
-        // const link = document.createElement('a')
-        // link.download = 'my-image-name.png'
-        // link.href = dataUrl
-        // link.click()
-      //  const img = new Image();
-        // img.src = dataUrl;
-        // document.body.appendChild(img);
-        const link = document.createElement('a')
-        link.download = 'my-image-name.png'
-        link.href = dataUrl
-        // link.click()
-
-        // console.log("img:", img.src);
-        // Set the generated image to state for displaying
-
-
-
-        setReviewImage(dataUrl);
-    
-        await uploadToIPFS2(dataUrl,auth);
-        console.log('nft price before calling the functuon:', nftPrice)
-        console.log('ipfs before calling the functuon:', ipfsUrl)
-        
-        document.body.removeChild(loadingOverlay);
-      })
-      .catch((err) => {
-        console.log(err)
-      })
-  }, [reviewRef,nftPrice, ipfsUrl,uploadToIPFS2])
-
-
-  
-  const createReviewNFT = async (url) => {
-    if (signer && contract) {
-      try {
-        const domain  = pathname.split('/')[2];
-  
-  // const priceNFT = ethers.formatEther(nftPrice);
-  console.log("nftPrice: in function ", nftPrice);
-  console.log("ipfsurl: in function ", url);
-  console.log("domain: in function ", domain);
-  // const priceNFT = ethers.formatEther(nftPrice.toString());
-  const priceNFT = nftPrice.toString();
-  console.log("priceNFT:", priceNFT);
-        const tx = await contract.createReviewNFT(url, priceNFT , domain);
-        console.log("tx:", tx);
-        const receipt = await tx.wait();
-        console.log("receipt:", receipt);
-      } catch (error) {
-        console.error('Error creating NFT:', error);
-      }
-    }
+    setPaymentModal(false);
+    setSuccessModal(true);
   };
 
-    
-    
-    return (
-        
+  if (isLoading) return <Loader />;
 
-<div>
-    <Tabs defaultValue="nfts" className="w-full rounded-full">
-    <TabsList className="grid w-full grid-cols-3 bg-gray-700 rounded-full">
-      <TabsTrigger value="nfts" onClick={() => setActiveTab('nfts')}>
-        NFTs
-      </TabsTrigger>
-      <TabsTrigger value="myNfts" onClick={() => setActiveTab('myNfts')}>
-        My NFTs
-      </TabsTrigger>
-      <TabsTrigger value="createReview" onClick={() => setActiveTab('createReview')}>
-        Create Review
-      </TabsTrigger>
-    </TabsList>
-    <TabsContent value="nfts">
-      {/* NFTs tab content - Display NFTs */}
-      <div>Placeholder for NFTs</div>
-    </TabsContent>
-    <TabsContent value="myNfts">
-      {/* My NFTs tab content - Display user's NFTs */}
-      <div>Placeholder for My NFTs</div>
-    </TabsContent>
-    <TabsContent value="createReview">
-      {/* Create Review tab content */}
-      <div>
-        <h2>Create Review</h2>
+  return (
+    <div className="relative flex justify-center md:flex-col min-h-screen">
+      <div className="relative flex-1 flex justify-center items-center sm:px-4 p-12 vorder-r md:border-r-0 md:border-b border-nft-black-1 ">
+        <div className="relative w-557 minmd:w-2/3 minmd:h-2/3 sm:w-full sm:h-300 h-557">
+          <Image
+            src={nft.image}
+            objectFit="cover"
+            className="rounded-xl shadow-lg"
+            layout="fill"
+          />
+        </div>
 
-<div>
-        <div className="react-flow__node react-flow__node-editorNode nopan selected selectable" data-id="92407e3f-1f35-4f37-8db2-d4518f9bc66b">
-  <div className="bg-gray-700 rounded-xl shadow-md px-4 py-3">
-    <div className="window">
- 
-      <div className="node-drag-handle bg-gray-800 rounded-full p-2 flex items-center h-2 w-full">
-        <svg viewBox="0 0 420 100" focusable="false" className="chakra-icon" style={{height:'25px',width:'30px'}}>
-          <circle fill="#ff5f57" cx="90" cy="50" r="90"></circle>
-          <circle fill="#febc2e" cx="250" cy="50" r="90"></circle>
-          <circle fill="#28c840" cx="410" cy="50" r="90"></circle>
-        </svg>
-       
       </div>
-      <div className="cm-theme bg-slate-900 mt-2 rounded-xl shadow-md">
-        <div className="cm-editor p-2">
-          {/* <!-- Replace the following line with your code snippet --> */}
-          
 
-          <div className="border rounded-xl p-2 mb-4 shadow-md" id="review-to-image">
-            {/* Styling to make textarea resemble a tweet */}
-         
-          {/* <!-- End of code snippet --> */}
-            <textarea
-              className="w-full h-40 p-2 resize-none outline-none bg-transparent rounded-xl"
-              placeholder="Write your review here..."
-              value={reviewText}
-              onChange={(e) => setReviewText(e.target.value)}
-              
+      <div className="flex-1 justify-start sm:px-4 p-12 sm:pb-4">
+        <div className="flex flex-row sm:flex-col">
+          <h2 className="font-poppins text-white  font-semibold text-2xl minlg:text-3xl">{nft.name}</h2>
+        </div>
+        <div className="mt-10">
+          <p className="font-poppins text-white  text-xs minlg:text-base font-normal">Creator</p>
+          <div className="flex flex-row items-center mt-3">
+            <div className="relative w-12 h-12 minlg:w-20 minlg:h-20 mr-2">
+              <Image
+                src={images.creator1}
+                objectFit="cover"
+                className="rounded-full"
+              />
+            </div>
+            <p className="font-poppins text-white text-xs minlg:text-base font-semibold">{shortenAddress(nft.seller)}</p>
+          </div>
+        </div>
+        <div className="mt-10 flex flex-col">
+          <div className="w-full border-b border-nft-gray-3 flex -flex-row">
+            <p className="font-poppins text-white text-base minlg:text-base font-medium mb-2">Details</p>
+
+          </div>
+          <div className="mt-3">
+            <p className="font-poppins text-white  text-base font-normal">{nft.description}</p>
+          </div>
+
+        </div>
+        <div className="flex flex-row sm:flex-col mt-10">
+          {currentAccount === nft.seller.toLowerCase()
+            ? (
+              <p className="font-poppins dark:text-white text-nft-black-1 text-base font-normal border-gray p-2">You cannot buy your own NFT</p>
+            )
+            : currentAccount === nft.owner.toLowerCase() ? (
+              <Button
+                btnName="List on MarketPLace"
+                classStyles="mr-5 sm:mr-0 sm:mb-5 rounded-xl"
+                handleClick={() => router.push(`/resell-nft?tokenId=${nft.tokenId}&tokenURI=${nft.tokenURI}`)}
+              />
+            ) : (
+              <Button
+                btnName={`Buy for ${nft.price} ${nftCurrency}
+                `}
+                classStyles="mr-5 sm:mr-0 sm:mb-5 rounded-xl"
+                handleClick={() => setPaymentModal(true)}
+              />
+            )}
+
+        </div>
+
+      </div>
+      {paymentModal && (
+      <Modal
+        header="Check Out"
+        body={<PaymentBodyCmp nft={nft} nftCurrency={nftCurrency} />}
+        footer={(
+          <div className="flex flex-row sm:flex-col">
+            <Button
+              btnName="Checkout"
+              classStyles="mr-5 sm:mb-5 sm:mr-0 rounded-xl"
+              handleClick={checkout}
+            />
+            <Button
+              btnName="Cancel"
+              classStyles="rounded-xl"
+              handleClick={() => { setPaymentModal(false); }}
             />
           </div>
-        
-
-        </div>
-      </div>
-      <div className="flex w-full relative">
-        <Input
-          className="w-full h-10 p-2 resize-none outline-none bg-transparent rounded-xl border-2 border-slate-800"  
-          placeholder="Price"
-          value={nftPrice}
-          onChange={(e) => setNftPrice(parseInt(e.target.value))}
-        />
-{/*         
-          <input type='number'  className="w-1/2 h-10 p-2 resize-none outline-none bg-transparent rounded-xl border-2 border-slate-800" placeholder="Price" 
-          value={nftPrice}
-          onChange={(e) => setNftPrice(parseInt(e.target.value))}
-
-          
-          /> */}
-
-        </div>
-      <button
-            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded m-2"
-            onClick={handleSubmitReview}
-          >
-            Submit
-          </button>
-          
-    </div>
-    {/* <canvas ref={canvasRef} style={{ display: 'none' }}></canvas> */}
-
-
-    {/* Hidden div containing the styled review */}
-    <div ref={reviewRef} style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
-                {/* Place your styled elements here */}
-                <div className="flex justify-center items-center w-full relative">
-    <div className="flex h-[25px]  items-center w-full relative bg-slate-800 rounded-t-full">
-      <div className="h-3 w-3 ml-4 rounded-full bg-red-500"></div>
-      <div className="h-3 w-3 rounded-full bg-yellow-500 mx-1"></div>
-      <div className="h-3 w-3 rounded-full bg-green-500"></div>
-    </div>
-  </div>
-                <div className="bg-gray-700  rounded-xl shadow-md p-4 h-[200px] relative">
-    {/* Circles */}
-    
-    {/* Text entered by the user */}
-    <div className="h-[200px] w-full rounded-t-none bg-slate-900 items-center justify-center flex rounded-xl shadow-md absolute top-0 left-0">
-      <p className="text-white text-center w-full break-all p-3">
-        {reviewText}
-      </p>
-    </div>
-  </div>
+        )}
+        handleclose={() => setPaymentModal(false)}
+      />
+      )}
+      {isLoadingNFT && (
+      <Modal
+        header="Buying NFT..."
+        body={(
+          <div className='flex justify-center items-center flex-col text-center'>
+            <div className='relative w-52 h-52'>
+                <Loader />
             </div>
-  </div>
-</div>
+          </div>
+        )}
+        
+        handleclose={() => setPaymentModal(false)}
+      />
+      )}
+      {successModal && (
+      <Modal
+        header="Payment Sucessful"
+        body={(
+          <div className="flex justify-center items-center flex-col text-center" onClick={() => setSuccessModal(false)}>
+            <div className="relative w-52 h-52">
+              <Image src={nft.image} objectFit="cover" layout="fill" />
+            </div>
 
+            <p className="font-poppins dark:text-white text-nft-black-1 font-normal text-sm minlg:text-xl mt-10">You successfully purchased <span className="font-semibold">{nft.name}</span> from <span className="font-semibold">{shortenAddress(nft.seller)}</span></p>
+          </div>
+)}
+        footer={(
+          <div className="flex justify-center items-center  flex-col">
+            <Button
+              btnName="Check it Out"
+              classStyles="sm:mb-5 sm:mr-0 rounded-xl"
+              handleClick={() => router.push('/my-nfts')}
+            />
 
-        </div>
-    {/* Display the review image if it exists */}
-    {/* {reviewImage && (
-        <div className="mt-8">
-            <h2 className="text-xl font-bold mb-2">Review Image</h2>
-            <img src={reviewImage} alt="Review" />
-        </div>
-    )} */}
+          </div>
+        )}
+        handleclose={() => setPaymentModal(false)}
+      />
+      )}
 
+    </div>
+  );
+};
 
-
-</div>
-
-    </TabsContent>
-    </Tabs>
-       </div>
-        )
-}
-
-export default NFTDeatilTabs
+export default NFTDetails;

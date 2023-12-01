@@ -16,17 +16,32 @@ const config: HardhatUserConfig = {
     compilers: [
       {
         version: "0.8.4",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 200,
+          },
+        },
       },
+
       {
         version: "0.8.20",
-        settings: {},
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 200,
+          },
+        },
       },
     ],
   },
+  
   paths: {
     artifacts: "D:/Blockchain/DeTrust/deetrust/src/hardhat/artifacts",
     sources: "D:/Blockchain/DeTrust/deetrust/src/hardhat/contracts", 
   },
+ 
+  
 };
 
 export default config;

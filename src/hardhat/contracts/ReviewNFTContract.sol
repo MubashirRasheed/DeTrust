@@ -11,7 +11,7 @@ contract ReviewNFTContract is ERC721URIStorage {
     Counters.Counter private _tokenIds;
     Counters.Counter private _itemsSold;
 
-    uint256 listingPrice = 0.025 ether;
+    uint256 public constant listingPrice = 0.025 ether;
 
     uint256 ownerCommissionPercentage = 15;
     uint256 creatorCommissionPercentage = 1000 - ownerCommissionPercentage;
@@ -38,6 +38,11 @@ contract ReviewNFTContract is ERC721URIStorage {
         bool moderated;
         uint256 timestamp;
         string category;
+        string businessLogoUrl;
+        string businessDescription;
+        string businessCategory;
+        string username;
+        
         // Add other metadata fields as needed
     }
 
@@ -74,9 +79,20 @@ contract ReviewNFTContract is ERC721URIStorage {
         address owner,
         uint256 price,
         bool sold,
-        string businessDomain
+        string businessDomain,
+        string tokenURI,
+        string category,
+        string businessLogoUrl,
+        string businessDescription,
+        string username
     );
 
+    event MarketItemSold(
+        uint256 indexed tokenId,
+        address seller,
+        address buyer,
+        uint256 price
+    );
     event UserRegistered(
         string username,
         address userAddress,
@@ -86,6 +102,8 @@ contract ReviewNFTContract is ERC721URIStorage {
         string businessCategory,
         string businessLogoUrl
     );
+
+    event NFTDelisted(uint256 tokenId, string businessDomain);
 
     event ReviewVoted(uint256 indexed tokenId, address voter, bool isUpvote);
     event DomainRegistered(string businessDomain, string username, string category, string description, string businessLogoUrl);
@@ -101,6 +119,7 @@ contract ReviewNFTContract is ERC721URIStorage {
     function getCreatorShare(uint256 x) private view returns (uint256) {
         return (x / 1000) * creatorCommissionPercentage;
     }
+
 
     function registerUser(
         string memory _username,
@@ -199,7 +218,11 @@ function getNFTSDetails(uint256 tokenId) public view returns (MarketItem memory)
         require(bytes(tokenURI).length > 0, "Token URI is required");
         require(price > 0, "Price must be at least 1");
         // require(msg.value == listingPrice, "Price must be equal to listing price");
+ // Check if the sender has sent the exact listing price
+    require(msg.value == listingPrice, "Price must be equal to listing price");
 
+    // Transfer 0.025 ether to the owner of the contract
+    owner.transfer(listingPrice);
         _tokenIds.increment();
 
         uint256 newTokenId = _tokenIds.current();
@@ -237,12 +260,16 @@ function getNFTSDetails(uint256 tokenId) public view returns (MarketItem memory)
             downvotes: 0,
             moderated: false,
             timestamp: block.timestamp,
-            category: ""
+        businessLogoUrl: registeredDomainsInfo[businessDomain].businessLogoUrl,
+        businessDescription: registeredDomainsInfo[businessDomain].description,
+        businessCategory: registeredDomainsInfo[businessDomain].category,
+        username: registeredDomainsInfo[businessDomain].username,
+        category: registeredDomainsInfo[businessDomain].category
         });
 
         _transfer(msg.sender, address(this), tokenId);
 
-        emit MarketItemCreated(tokenId, msg.sender, address(this), price, false, businessDomain);
+        emit MarketItemCreated(tokenId, msg.sender, address(this), price, false, businessDomain, tokenURI, registeredDomainsInfo[businessDomain].category, registeredDomainsInfo[businessDomain].businessLogoUrl, registeredDomainsInfo[businessDomain].description, registeredDomainsInfo[businessDomain].username);
     }
 
     function updateBusinessDomain(string memory _businessDomain) public {
@@ -367,4 +394,40 @@ function getTotalDownvotes(uint256 tokenId) public view returns (uint256) {
     return review.downvotes;
 }
 
+function buyNFT(uint256 tokenId) public payable {
+    require(idToMarketItem[tokenId].tokenId != 0, "NFT does not exist");
+    require(!idToMarketItem[tokenId].sold, "NFT already sold");
+    require(msg.value >= idToMarketItem[tokenId].price, "Insufficient funds");
+
+      // Calculate the commission for the marketplace contract owner
+    uint256 marketplaceOwnerShare = (idToMarketItem[tokenId].price * ownerCommissionPercentage) / 1000;
+     // Transfer the payment (minus the marketplace owner's share) to the seller
+    idToMarketItem[tokenId].seller.transfer(msg.value - marketplaceOwnerShare);
+ // Transfer the marketplace owner's share to the marketplace contract owner
+    payable(owner).transfer(marketplaceOwnerShare);
+
+    // Transfer ownership of the NFT to the buyer
+    idToMarketItem[tokenId].owner = payable(msg.sender);
+    idToMarketItem[tokenId].seller = payable(msg.sender);
+    // idToMarketItem[tokenId].sold = true;
+
+    _transfer(address(this), msg.sender, tokenId);
+
+    emit MarketItemSold(tokenId, idToMarketItem[tokenId].seller, msg.sender, idToMarketItem[tokenId].price);
+}
+
+
+
+function delistNFT(uint256 tokenId, string memory businessDomain) public {
+    require(ownerOf(tokenId) == msg.sender, "You are not the owner of this NFT");
+    require(registeredDomains[businessDomain], "Business domain is not registered");
+
+    MarketItem storage marketItem = idToMarketItem[tokenId];
+    require(keccak256(abi.encodePacked(marketItem.businessDomain)) == keccak256(abi.encodePacked(businessDomain)), "NFT is not associated with this domain");
+
+    // Mark the NFT as sold (delisted) for this domain
+    marketItem.sold = true;
+
+    emit NFTDelisted(tokenId, businessDomain);
+}
 }

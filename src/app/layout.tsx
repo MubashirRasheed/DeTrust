@@ -5,6 +5,10 @@ import NavBar from './components2/Navbar'
 import { EthereumProvider } from '@/contextProvider/smartcontractContext'
 import { WalletConnection } from '@/contextProvider/walletContext'
 
+import "@fortawesome/fontawesome-svg-core/styles.css";
+import { config } from "@fortawesome/fontawesome-svg-core";
+config.autoAddCss = false;
+
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {

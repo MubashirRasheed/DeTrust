@@ -2,6 +2,9 @@ import { ethers } from "hardhat";
 
 async function main() {
   const currentTimestampInSeconds = Math.round(Date.now());
+  const accounts = await ethers.getSigners();
+  const deployer = accounts[0];
+
  
 
 
@@ -11,7 +14,7 @@ async function main() {
   await lock.waitForDeployment();
 
   console.log(
-    `${currentTimestampInSeconds} deployed to ${lock.target}`
+  `Contract deployed with account: ${deployer.address} at ${lock.target}`
   );
 }
 
