@@ -3,8 +3,9 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useEthereum } from '@/contextProvider/smartcontractContext';
 import { usePathname, useRouter } from 'next/navigation';
-import NFTDeatilTabs from '@/app/components2/Nftdetail';
+import NFTDeatilTabs from '@/app/components2/BussinessDetail';
 import Image from 'next/image';
+import BussinessDetailTab from '@/app/components2/BussinessDetail';
 
 interface NFT {
   tokenId: number;
@@ -69,7 +70,7 @@ fetchData();
         </div>
       </div>
 
-      <NFTDeatilTabs />
+      <BussinessDetailTab nftsTokenId={nftsTokenId} />
     </div>
   );
 };
