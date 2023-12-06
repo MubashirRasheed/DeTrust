@@ -27,7 +27,16 @@ import { ethers } from 'ethers';
 
 // const shortenAddress = (addressss:string) => `${addressss.slice(0, 6)}...${addressss.slice(-4)}`;
 
-const PaymentBodyCmp = ({ nft, nftCurrency }) => (
+
+interface PaymentBodyProps {
+  nft: any;
+  nftCurrency: string;
+}
+interface renderCommentsProps {
+  comments: any;
+}
+
+const PaymentBodyCmp = ({ nft, nftCurrency }: PaymentBodyProps) => (
   <div className="flex flex-col">
     <div className="flex flex-col">
       <p className="font-poppins text-whitefont-semibold text-base ">Item</p>
@@ -128,6 +137,7 @@ const NFTDetails = () => {
   const [successModal, setSuccessModal] = useState(false);
   const [upvoteCount, setUpvoteCount] = useState(0);
   const [downvoteCount, setDownvoteCount] = useState(0);
+  const [commentsOpen, setCommentsOpen] = useState(false);
 const pathname = usePathname();
 const tokenIDquery = pathname.split('/')[2];
 const { signer, contract} = useEthereum();
@@ -282,8 +292,8 @@ const fetchData = useCallback(async () => {
     }
   };
 
-  const renderComments = (comments) => {
-    return comments.map((comment, index) => <Comment key={index} comment={comment}  handleReply={handleReply} />);
+  const renderComments = (comments: any) => {
+    return comments.map((comment: any, index: React.Key | null | undefined) => <Comment key={index} comment={comment}  handleReply={handleReply} />);
   };
 
   const logComments = () => {
@@ -304,8 +314,14 @@ const fetchData = useCallback(async () => {
       return nft.seller 
     } 
   }
+
+
+  const commentClick = () => {
+    setCommentsOpen(!commentsOpen);
+    setActiveTab('comments');
+  }
   return (
-    <div>
+    <div className=' overflow-y-auto' style={{scrollBehavior: 'smooth'}}>
     <div className="relative flex justify-center  min-h-screen">
       <div className="absolute top-1/2 left-4 transform -translate-y-1/2 flex flex-col items-center p-2 m-4 mb-32">
       {/* <FontAwesomeIcon icon={faArrowUp}  size='2x'/> */}
@@ -510,10 +526,20 @@ const fetchData = useCallback(async () => {
       
     </div>
     <div className='flex flex-row w-full mt-10'>
-    <Tabs defaultValue="comments" className="w-full rounded-full">
-    <TabsList className="grid w-full grid-cols-3 bg-gray-700 rounded-xl text-center">
-      <TabsTrigger value="comments" onClick={() => setActiveTab('comments')}>
+    <Tabs defaultValue="comments" className="w-full rounded-full p-4 justify-center">
+    <TabsList className="grid w-full grid-cols-3 bg-gray-700 rounded-xl justify-center items-start text-center">
+      <TabsTrigger className='flex justify-center items-center text-center' value="comments" onClick={commentClick}>
+        
+       
+
+      </TabsTrigger>
+      <TabsTrigger className='flex justify-center items-center text-center' value="comments" onClick={commentClick}>
         Comments
+       
+
+      </TabsTrigger>
+      <TabsTrigger className='flex justify-center items-center text-center' value="comments" onClick={commentClick}>
+        
        
 
       </TabsTrigger>
@@ -523,7 +549,10 @@ const fetchData = useCallback(async () => {
     <TabsContent value="comments">
       {/* NFTs tab content - Display NFTs */}
       <div>
-      <div>
+        {commentsOpen && (
+      <div className={`overflow-hidden transition-height duration-500 ${
+        commentsOpen ? 'h-auto' : 'h-0'
+      }`} >
       <h1>Comment Here </h1>
       <div className="flex justify-start flex-row w-full mt-10 rounded-xl m-4">
         <input
@@ -539,7 +568,7 @@ const fetchData = useCallback(async () => {
       {renderComments(comments)}
       <button onClick={logComments}>Log Comments</button>
     </div>
-        
+        )}
       </div>
 
     </TabsContent>

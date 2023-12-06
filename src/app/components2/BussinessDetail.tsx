@@ -43,15 +43,15 @@ const BussinessDetailTab = ({nftsTokenId}:any) => {
   
    
     
-    // const conf = create({
-    //   host: 'ipfs.infura.io',
-    //   port: 5001,
-    //   protocol: 'https',
-    //   headers: {
-    //     authorization: auth,
-    //   },
-    // });
-    // console.log("conf:", conf);
+    const conf = create({
+      host: 'ipfs.infura.io',
+      port: 5001,
+      protocol: 'https',
+      headers: {
+        authorization: auth,
+      },
+    });
+    console.log("conf:", conf);
     const uploadToIPFS2 = async (fileUri) => {
       const subdomain = 'https://cryptosea-nft-marketplace.infura-ipfs.io';
     
